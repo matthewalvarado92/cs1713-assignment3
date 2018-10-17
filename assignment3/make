@@ -1,0 +1,18 @@
+cs1713p3Driver: cs1713p3Driver.o p3ufo173.o
+    gcc -o cs1713p3Driver p3ufo173.o cs1713p3Driver.o
+
+cs1713p3Driver.o: cs1713p3Driver.c
+    gcc -c cs1713p3Driver.c
+
+p3ufo173.o: p3ufo173.c
+    gcc -c p3ufo173.c
+
+clean:
+    rm -f cs1713p3Driver cs1713p3Driver.o
+
+all: cs1713p3Driver;
+
+
+
+
+
