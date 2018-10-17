@@ -1,0 +1,4 @@
+gcc -c -o cs1713p3Driver.o cs1713p3Driver.c
+gcc -c -o p3abc123.o p3abc123.c
+gcc -g -o p3 cs1713p3Driver.o cs1713p3Driver.c
+
