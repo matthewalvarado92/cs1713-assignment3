@@ -86,7 +86,7 @@ int getUsers(User userM[], char *pszUserFileName)
     char szInputBuffer[MAX_LINE_SIZE];   // some memory to read lines from file into
     char *pszNextLine = NULL;            // a pointer to the next line to be parsed
     int iScanfCount = 0;                 // number of valid conversions for sscanf
-    int iUserCnt = 0;                    // number of users obtained from file
+    int i = 0;                    // number of users obtained from file
     FILE *pFileUsers;                    // Stream Input for User data
     
     /* open the Users stream data file */
@@ -101,11 +101,38 @@ int getUsers(User userM[], char *pszUserFileName)
     // fgets() returns NULL when EOF is reached
 
     /***** your code *******/
+    while (fgets(szInputBuffer,MAX_LINE_SIZE, pFileUsers) != NULL) {
+        if (szInputBuffer[0] == '\n')
+            continue;
+            iScanfCount = sscanf(szInputBuffer, "%10s %10s %lf %lf %d\n"
+                , userM[i].szMake
+                , userM[i].szModel
+                , &userM[i].dAvgMPG
+                , &userM[i].dAvgPPG
+                , &userM[i].iNumFillups);
+            if (iScanfCount < 5)
+            {
+                char szErrorMessage[] = "\nError: The scan count is less than 5" ;
+                exitError(ERR_USER_CONTACT_DATA,szErrorMessage);
+            }
+            fgets(szInputBuffer, MAX_LINE_SIZE, pFileUsers);
+            iScanfCount = sscanf(szInputBuffer, "%6s,%[^,],%[^,],%[^,],%[^[\n,]]"
+                , userM[i].szUserId
+                , userM[i].szEmailAddr
+                , userM[i].szFullName
+                , userM[i].szPhone
+            , userM[i].szLoginName);
+            if (iScanfCount < 5){
+                char szErrorMessage[] = "\nError: The scan count is less than 5" ;
+                exitError(ERR_USER_CONTACT_DATA,szErrorMessage);
+            }
+            i++;
+    }
 
     
     
     fclose(pFileUsers);
-    return iUserCnt;
+    return i;
 }
 
 /******************** sortUsers **************************************
@@ -122,7 +149,27 @@ Notes:
 void sortUsers(User userM[], int iUserCnt)
 {
     /**** your code ******/
-    
+   int i ,j;
+   int bChange; //boolean
+   User userTemp;
+   
+   for(i = 0; i < (iUserCnt-1); i++)
+   {
+       bChange = FALSE;
+        for(j = 1; j < (iUserCnt -i -1); j++)
+        {
+            if(strcmp(userM[j+1].szUserId, userM[j].szUserId) < 0)
+            {
+                userTemp = userM[j+1];
+                userM[j+1] = userM[j];
+                userM[j] = userTemp;
+                bChange = TRUE;
+            }
+        }
+        if( ! bChange)
+            break;
+   }
+
     
     
 }
@@ -163,7 +210,16 @@ void processUserCommand(User userM[], int iUserCnt
     if (strcmp(pszSubCommand, "UPDVEH") == 0)
     {
         // get the szUserId and szMake and szModel
-        // your code
+        // your codei
+        iScanfCnt = sscanf(pszRemainingInput, "%6s %10s %10s", szUserId, szMake, szModel);
+            i = searchUsers(userM, iUserCnt, szUserId);
+            //userM[i].szMake = szMake;
+            memcpy(userM[i].szMake,szMake,sizeof(szMake));
+            //userM[i].szModel = szModel;
+            memcpy(userM[i].szModel, szModel, sizeof(szModel));
+            userM[i].dAvgMPG = 0.0;
+            userM[i].dAvgPPG = 0.0;
+            userM[i].iNumFillups = 0;
 
         
         // Check for bad data
@@ -191,7 +247,9 @@ void processUserCommand(User userM[], int iUserCnt
         }
         
         // your code
-        
+        printf("USER SHOW %s", userM[i].szUserId);
+        printf("  %-7s %-10s %-10s  %6.2lf  %6.2lf\n", userM[i].szUserId, userM[i].szMake, userM[i].szModel, userM[i].dAvgMPG, userM[i].dAvgPPG);
+        printf("     %-20s %-13s   %-12s %-30s\n", userM[i].szFullName, userM[i].szPhone, userM[i].szLoginName, userM[i].szEmailAddr );
     }
     else printf(WARN_USER_SUB_COMMAND, pszSubCommand);
 }
@@ -228,6 +286,17 @@ void processVehCommand(User userM[], int iUserCnt
     
     // Determine what to do based on the subCommand
     // your code
+    iScanfCount = sscanf(pszRemainingOutput,"%s %s %lf %d %lf"
+    , pszSubCommand
+    , fillup.szUserId
+    , &fillup.dPPG
+    , &fillup.iMiles
+    , &fillup.dGallons);
+
+    if(strcmp(pszSubCommand,"FIX"))
+        processFillupFix(fillup, userM, iUserCnt);
+    else if(strcmp(pszSubCommand, "FILL"))
+        processFillup(fillup, userM, iUserCnt);
     
     
     
@@ -250,6 +319,20 @@ Notes:
 int searchUsers(User userM[], int iUserCnt, char *pszMatchUserId)
 {
     // your code
+    int iLb = 0;
+    int iUb = iUserCnt -1;
+    int iMid;
+    while(iLb < iUb)
+    {
+        iMid = (iLb + iUb) / 2;
+        if(pszMatchUserId == userM[iMid].szUserId)
+            return iMid;
+        else if(pszMatchUserId < userM[iMid].szUserId)
+            iUb = iMid -1;
+        else
+            iLb = iMid + 1;
+    }
+
 
     
     return -1;        // not found
@@ -258,15 +341,38 @@ int searchUsers(User userM[], int iUserCnt, char *pszMatchUserId)
 /*** include your processFillup code from Program #2.  Change it to use
     your binary search ***/
 // your code
+void processFillup(Fillup fillup, User userM[], int iUserCnt){
+    int i;
+    //printing out the infomation.
+    //printf("  %s        %.2lf    %d  %5.1lf"  , fillup.szUserId, fillup.dPPG, fillup.iMiles, fillup.dGallons);
+    i = searchUsers(userM, iUserCnt, fillup.szUserId);
+     //computering the new averages and shit.
+     if (i != -1){
+         printf("\n");
+         userM[i].dAvgMPG =( (userM[i].dAvgMPG*userM[i].iNumFillups)+(fillup.iMiles/fillup.dGallons)) / (userM[i].iNumFillups + 1);
+         userM[i].dAvgPPG =( (userM[i].dAvgPPG * userM[i].iNumFillups) + fillup.dPPG ) / (userM[i].iNumFillups + 1);
+         userM[i].iNumFillups++;
+     }
+}
+
 
 
 
 // documentation required
 void processFillupFix(Fillup fillup, User userM[], int iUserCnt)
 {
+    int i;
     // your code
-}
+    i = searchUsers(userM, iUserCnt, fillup.szUserId);
 
+    if (i != -1)
+    {
+        printf("\n");
+        userM[i].dAvgMPG =( (userM[i].dAvgMPG*userM[i].iNumFillups)-(fillup.iMiles/fillup.dGallons)) / (userM[i].iNumFillups - 1);
+        userM[i].dAvgPPG =( (userM[i].dAvgPPG * userM[i].iNumFillups) - fillup.dPPG ) / (userM[i].iNumFillups - 1);
+        userM[i].iNumFillups--;
+    }
+}
 // documentation required
 void printFillup(Fillup fillup)
 {
@@ -301,17 +407,8 @@ void printUsers(char szHeading[], User userM[], int iUserCnt)
     // iterate through the userM array
     for (i = 0; i < iUserCnt; i++)
     {
-        printf("  %-7s %-10s %-10s  %6.2lf  %6.2lf\n"
-               , userM[i].szUserId
-               , userM[i].szMake
-               , userM[i].szModel
-               , userM[i].dAvgMPG
-               , userM[i].dAvgPPG);
-        printf("     %-20s %-13s   %-12s %-30s\n"
-               , userM[i].szFullName
-               , userM[i].szPhone
-               , userM[i].szLoginName
-               , userM[i].szEmailAddr );
+        printf("  %-7s %-10s %-10s  %6.2lf  %6.2lf\n", userM[i].szUserId, userM[i].szMake, userM[i].szModel, userM[i].dAvgMPG, userM[i].dAvgPPG);
+        printf("     %-20s %-13s   %-12s %-30s\n", userM[i].szFullName, userM[i].szPhone, userM[i].szLoginName, userM[i].szEmailAddr );
     }
     printf("\n");
 }
